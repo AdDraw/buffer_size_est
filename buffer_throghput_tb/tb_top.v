@@ -17,6 +17,7 @@ module tb_top #(
   generate
     if (WRITE_FREQ == READ_FREQ ) begin
       // Sync FIFO since read and write frequencies are identical
+      wire rdata;
       wire full;
       wire empty;
       circ_fifo #(
@@ -29,7 +30,7 @@ module tb_top #(
         .wr_en_i     (we_i),
         .rd_en_i     (re_i),
         .data_i      (1'b1),
-        .data_o      ( ),
+        .data_o      (rdata),
         .full_o      (full),
         .empty_o     (empty),
         .overflow_o  (),
