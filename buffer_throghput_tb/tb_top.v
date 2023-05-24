@@ -13,13 +13,14 @@ module tb_top #(
   output wire rd_rdy_o,
   output wire wr_rdy_o
 );
+  localparam integer DATA_W = 1;
   generate
     if (WRITE_FREQ == READ_FREQ ) begin
       // Sync FIFO since read and write frequencies are identical
       wire full;
       wire empty;
       circ_fifo #(
-        .DATA_W       (1),
+        .DATA_W       (DATA_W),
         .FIFO_DEPTH_W (FIFO_DEPTH_W),
         .ID           (0)
       ) fifo_inst (
@@ -41,7 +42,7 @@ module tb_top #(
       wire rdata;
       // Async FIFO since read and write frequencies differ
       async_fifo_Ndeep #(
-        .DATA_WIDTH         (1),
+        .DATA_WIDTH         (DATA_W),
         .BUFFER_DEPTH_POWER (FIFO_DEPTH_W )
       ) fifo_inst (
         .clk_a_i  (clk_w_i),
