@@ -1,0 +1,6 @@
+# [submodule "submodules/cdc"]
+#   path = submodules/cdc
+# 	url = git@github.com:AdDraw/cdc.git
+[submodule "submodules/cdc"]
+	path = submodules/cdc
+	url = git@github.com:AdDraw/cdc.git
