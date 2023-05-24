@@ -1,0 +1,45 @@
+[*]
+[*] GTKWave Analyzer v3.3.104 (w)1999-2020 BSI
+[*] Wed May 24 21:33:26 2023
+[*]
+[dumpfile] "/home/adam/git_repos/buffer_fill_eq/buffer_throghput_tb/dump.vcd"
+[dumpfile_mtime] "Wed May 24 21:33:10 2023"
+[dumpfile_size] 1641
+[savefile] "/home/adam/git_repos/buffer_fill_eq/buffer_throghput_tb/xxx.gtkw"
+[timestart] 30
+[size] 3766 2096
+[pos] -39 -39
+*0.000000 31 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[sst_width] 233
+[signals_width] 165
+[sst_expanded] 1
+[sst_vpaned_height] 658
+@28
+tb_top.clk_r_i
+tb_top.clk_w_i
+tb_top.genblk1.empty
+tb_top.genblk1.fifo_inst.clk_i
+tb_top.genblk1.fifo_inst.data_i
+tb_top.genblk1.fifo_inst.data_o
+tb_top.genblk1.fifo_inst.data_v
+tb_top.genblk1.fifo_inst.empty_o
+tb_top.genblk1.fifo_inst.empty_w
+tb_top.genblk1.fifo_inst.full_o
+tb_top.genblk1.fifo_inst.full_w
+tb_top.genblk1.fifo_inst.overflow_o
+tb_top.genblk1.fifo_inst.overflow_v
+tb_top.genblk1.fifo_inst.rd_en_i
+tb_top.genblk1.fifo_inst.rd_ptr_v[1:0]
+tb_top.genblk1.fifo_inst.rst_ni
+tb_top.genblk1.fifo_inst.underflow_o
+tb_top.genblk1.fifo_inst.underflow_v
+tb_top.genblk1.fifo_inst.wr_en_i
+tb_top.genblk1.fifo_inst.wr_ptr_v[1:0]
+tb_top.genblk1.full
+tb_top.rd_rdy_o
+tb_top.re_i
+tb_top.rst_ni
+tb_top.we_i
+tb_top.wr_rdy_o
+[pattern_trace] 1
+[pattern_trace] 0
