@@ -2,6 +2,8 @@ import math
 import tabulate as tab
 import argparse
 
+import subprocess as subp
+
 def main(write_burst_size, read_burst_size, write_idle_cycle, read_idle_cycle, frequency_write, frequency_read, number_of_bursts):
   period_write = 1 / frequency_write
   period_read = 1 / frequency_read
@@ -56,6 +58,7 @@ if __name__ == "__main__":
   parser.add_argument("--fw", type=int, default=1, help="Write Frequency in Hz, def=1")
   parser.add_argument("--fr", type=int, default=1, help="Read Frequency in Hz, def=1")
   parser.add_argument("--wbn", type=int, default=1, help="How many write bursts in a sequence is there to process, def=1")
+  parser.add_argument("--testbench_check", default=False, action="store_true", help="Runs testbench check after calculations")
   args = parser.parse_args()
 
   write_burst_size = args.wbs
@@ -65,6 +68,7 @@ if __name__ == "__main__":
   frequency_write = args.fw
   frequency_read = args.fr
   number_of_write_bursts = args.wbn
+  testbench_check = args.testbench_check
 
   min_fifo_size = main(write_burst_size,
                        read_burst_size,
@@ -74,3 +78,45 @@ if __name__ == "__main__":
                        frequency_read,
                        number_of_write_bursts
                        )
+
+  if testbench_check:
+    # Testbench now only deals in FIFO size equal to powers of 2
+    # we have to take the fifo size and generate a ceil(log())
+    fifo_depth_w = math.ceil(math.log2(min_fifo_size))
+    print(f"Adjusted minimum FIFO SIZE {fifo_depth_w}, because {pow(2, fifo_depth_w)} >= {min_fifo_size}")
+
+    print("-----------------------------------")
+    print("-- Testbench check in progress... -")
+    print("-----------------------------------")
+
+    shell_cmd = f"make" \
+                f" WRITE_BURST_SIZE={write_burst_size}" \
+                f" WRITE_IDLE_CYCLES_BETWEEN_BURSTS={write_idle_cycle}" \
+                f" WRITE_NUMBER_OF_BURSTS={number_of_write_bursts}" \
+                f" READ_BURST_SIZE={read_burst_size}" \
+                f" READ_IDLE_CYCLES_BETWEEN_BURSTS={read_idle_cycle}" \
+                f" FIFO_DEPTH_W={fifo_depth_w}" \
+                f" WRITE_FREQ={frequency_write}" \
+                f" READ_FREQ={frequency_read}"
+
+
+    import os
+    cdw = os.getcwd()
+
+    shell_cmd = shell_cmd.split(" ")
+
+    print(shell_cmd)
+
+    subp.Popen(args="make clean".split(" "), shell=False, cwd=f"{cdw}/buffer_throghput_tb/", stdout=subp.PIPE, stderr=subp.STDOUT)
+
+    make_proc = subp.Popen(args=shell_cmd, shell=False, cwd=f"{cdw}/buffer_throghput_tb/", stdout=subp.PIPE, stderr=subp.STDOUT)
+    stdout, stderr = make_proc.communicate()
+
+    stdout = stdout.decode()
+    if stderr is not None:
+      stderr = stderr.decode()
+    return_code = make_proc.returncode
+
+    print(f"stdout: {stdout}")
+    print(f"stderr: {stderr}")
+    print(f"return_code: {return_code}")
