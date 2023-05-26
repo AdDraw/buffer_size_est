@@ -1,46 +1,119 @@
 import cocotb
 from cocotb.clock import Clock
-from cocotb.triggers import RisingEdge, ClockCycles
+from cocotb.triggers import RisingEdge, ClockCycles, FallingEdge, ReadOnly, ReadWrite
+from cocotb.regression import TestSuccess
 
 W_CLOCK_PERIOD = 1
 R_CLOCK_PERIOD = 1
 
-class WriteDriver():
-  """_summary_
-    Module adhering to a specific set of write parameters
-    generates fifo write enable signals no matter if the fifo is full
-    because then we can tell if Write Bandwidth vs Read Bandwidth vs Fifo size is good enough
-  """
-  def __init__(self) -> None:
-    pass
+class Interface:
+    def __init__(self, clk, rst) -> None:
+        self.clk = clk
+        self.rst = rst
 
-class ReadDriver():
-  """_summary_
-    Module adhering to a specific set of read parameters
-    generates fifo read enable signals(taking into consideration if fifo is empty)
-    because then we can tell if Write Bandwidth vs Read Bandwidth vs Fifo size is good enough
-  """
-  def __init__(self) -> None:
-    pass
+    async def redge(self, ro=False):
+        await RisingEdge(self.clk)
+        if ro:
+          await ReadOnly()
 
-class Tb:
-  """_summary_
-    Holds tools necessary to check/test that FIFO size is good enough
-    to handle read and write bandwidths
-  """
-  def __init__(self, dut):
-    self.dut = dut
-    self.clk_w = dut.clk_w_i
-    self.write_drv = WriteDriver()
-    self.read_drv =  ReadDriver()
-    self.dut.re_i.value = 0
-    self.dut.we_i.value = 0
+    async def fedge(self, ro=False):
+        await FallingEdge(self.clk)
+        if ro:
+          await ReadOnly()
 
-  async def reset(self, reset_time=10, polarity=False):
-    self.dut.rst_ni.value = polarity
-    await ClockCycles(self.clk_w, reset_time)
-    self.dut.rst_ni.value = not polarity
-    await ClockCycles(self.clk_w, reset_time)
+    async def reset(self, cycles: int = 5, active_high: bool = False):
+        self.rst.setimmediatevalue(active_high)
+        await ClockCycles(self.clk, cycles)
+        self.rst.setimmediatevalue(not active_high)
+
+class WriteInterface(Interface):
+    def __init__(self, dut) -> None:
+        self.we = dut.we_i
+        self.wrdy = dut.wrdy_o
+        super().__init__(dut.clk_w_i, dut.rst_ni)
+
+class ReadInterface(Interface):
+    def __init__(self, dut) -> None:
+        self.re = dut.re_i
+        self.rrdy = dut.rrdy_o
+        super().__init__(dut.clk_r_i, dut.rst_ni)
+
+class Driver:
+    def __init__(self, wif: WriteInterface, burst_size, idle_cyc_between_bursts, number_of_bursts) -> None:
+        self._if = wif
+        self.bs = burst_size
+        self.idle_bb = idle_cyc_between_bursts
+        self.bn = number_of_bursts
+
+    async def write_constantly(self):
+        """_summary_
+          Start writing as soon as wrdy has been asserted, after this point don't care about
+          wrdy, write data as fast as required, but write with a given bandwidth
+        """
+        while True:
+          # WAIT FOR FIFO WRITABLE
+          while not self._if.wrdy.value:
+              await self._if.redge(ro=True)
+          # START ISSUING WRITES(as many as requested)
+          for burst_id in range(self.bn):
+            for i in range(self.bs): # BURST WRITE
+              await self._if.redge()
+              self._if.we.setimmediatevalue(1)
+            for i in range(self.idle_bb): # IDLE CYCLES BETWEEN BURSTS
+              await self._if.redge()
+              self._if.we.setimmediatevalue(0)
+          break
+
+class Receiver:
+    def __init__(self, rif: ReadInterface, burst_size, idle_cyc_between_bursts) -> None:
+        self._if = rif
+        self.bs = burst_size
+        self.idle_bb = idle_cyc_between_bursts
+        self.received = []
+
+    async def read_constantly(self):
+        """_summary_
+          Read data from the FIFO as soon as it is available
+          using a burst read functionality
+          read data in a burst, then stop for a set number of cycles
+          and then continue reading
+        """
+        while True:
+            # wait untill not empty
+            while not self._if.rrdy.value:
+                await self._if.redge(ro=True)
+            # Start reading in bursts
+            while True:
+              for i in range(self.bs): # BURST WRITE
+                await self._if.redge()
+                self._if.re.setimmediatevalue(1)
+              for i in range(self.idle_bb): # IDLE CYCLES BETWEEN BURSTS
+                await self._if.redge()
+                self._if.re.setimmediatevalue(0)
+
+class TB:
+    def __init__(self, dut) -> None:
+        self.dut = dut
+        self.wif = WriteInterface(dut)
+        self.rif = ReadInterface(dut)
+        self.driver = Driver(self.wif, burst_size=10, idle_cyc_between_bursts=2, number_of_bursts=2)
+        self.reader = Receiver(self.rif, burst_size=10, idle_cyc_between_bursts=3)
+        self.init_ports()
+
+    def init_ports(self):
+        # self.dut.cA_din_i.setimmediatevalue(0)
+        self.dut.we_i.setimmediatevalue(0)
+        self.dut.re_i.setimmediatevalue(0)
+        self.dut.rst_ni.setimmediatevalue(1)
+
+    async def check(self):
+      while self.dut.wrdy_o.value:
+        await self.wif.redge(ro=True)
+
+        # Count how many values in the FIFO
+
+      await self.wif.redge()
+      raise ValueError("Fifo got full!!, Wrong FIFO size")
 
 @cocotb.test()
 async def test(dut):
@@ -48,6 +121,16 @@ async def test(dut):
   cocotb.start_soon(Clock(d.clk_r_i, R_CLOCK_PERIOD, units="ns").start(start_high=False))
   cocotb.start_soon(Clock(d.clk_w_i, W_CLOCK_PERIOD, units="ns").start(start_high=False))
 
-  tb = Tb(dut)
-  await tb.reset()
+  tb = TB(dut)
+  await tb.wif.reset()
+
+  cocotb.start_soon(tb.check())
+  cocotb.start_soon(tb.reader.read_constantly())
+  await tb.driver.write_constantly()
+
+  await ClockCycles(dut.clk_w_i, 5) # wait for eventual FULL assertion
+
+  raise TestSuccess
+
+
 

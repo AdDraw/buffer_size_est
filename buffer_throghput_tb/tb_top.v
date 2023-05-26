@@ -6,12 +6,14 @@ module tb_top #(
   parameter integer READ_FREQ    = 1
 )(
   input  wire rst_ni,
+  // Write
   input  wire clk_w_i,
-  input  wire clk_r_i,
   input  wire we_i,
+  output wire wrdy_o,
+  // Read Port
+  input  wire clk_r_i,
   input  wire re_i,
-  output wire rd_rdy_o,
-  output wire wr_rdy_o
+  output wire rrdy_o
 );
   localparam integer DATA_W = 1;
   generate
@@ -36,8 +38,8 @@ module tb_top #(
         .overflow_o  (),
         .underflow_o ()
       );
-      assign wr_rdy_o = ~full;
-      assign rd_rdy_o = ~empty;
+      assign wrdy_o = ~full;
+      assign rrdy_o = ~empty;
     end
     else begin
       wire rdata;
@@ -50,12 +52,12 @@ module tb_top #(
         .a_rst_ni (rst_ni),
         .a_we_i   (we_i),
         .a_din_i  (1'b1),
-        .a_wrdy_o (wr_rdy_o),
+        .a_wrdy_o (wrdy_o),
         .clk_b_i  (clk_r_i),
         .b_rst_ni (rst_ni),
         .b_re_i   (re_i),
         .b_dout_o (rdata),
-        .b_rrdy_o (rd_rdy_o)
+        .b_rrdy_o (rrdy_o)
       );
     end
   endgenerate
