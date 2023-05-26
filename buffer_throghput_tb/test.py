@@ -3,9 +3,6 @@ from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, ClockCycles, FallingEdge, ReadOnly, ReadWrite
 from cocotb.regression import TestSuccess
 
-W_CLOCK_PERIOD = 1
-R_CLOCK_PERIOD = 1
-
 class Interface:
     def __init__(self, clk, rst) -> None:
         self.clk = clk
@@ -94,10 +91,15 @@ class Receiver:
 class TB:
     def __init__(self, dut) -> None:
         self.dut = dut
+        wbs = dut.WRITE_BURST_SIZE.value
+        wbi = dut.WRITE_IDLE_CYCLES_BETWEEN_BURSTS.value
+        wbn = dut.WRITE_NUMBER_OF_BURSTS.value
+        rbs = dut.READ_BURST_SIZE.value
+        rbi = dut.READ_IDLE_CYCLES_BETWEEN_BURSTS.value
         self.wif = WriteInterface(dut)
         self.rif = ReadInterface(dut)
-        self.driver = Driver(self.wif, burst_size=10, idle_cyc_between_bursts=2, number_of_bursts=2)
-        self.reader = Receiver(self.rif, burst_size=10, idle_cyc_between_bursts=3)
+        self.driver = Driver(self.wif, burst_size=wbs, idle_cyc_between_bursts=wbi, number_of_bursts=wbn)
+        self.reader = Receiver(self.rif, burst_size=rbs, idle_cyc_between_bursts=rbi)
         self.init_ports()
 
     def init_ports(self):
@@ -118,6 +120,16 @@ class TB:
 @cocotb.test()
 async def test(dut):
   d = dut
+  # Frequency
+  w_freq = dut.WRITE_FREQ.value
+  r_freq = dut.READ_FREQ.value
+  W_CLOCK_PERIOD = 1/w_freq * 1e9 # normalize to ns
+  R_CLOCK_PERIOD = 1/r_freq * 1e9 # normalize to ns
+
+  cocotb.log.info(f"Write Freq: {w_freq}Hz Period: {W_CLOCK_PERIOD}ns")
+  cocotb.log.info(f"Read Freq: {r_freq}Hz Period: {R_CLOCK_PERIOD}ns")
+
+  # Clocks
   cocotb.start_soon(Clock(d.clk_r_i, R_CLOCK_PERIOD, units="ns").start(start_high=False))
   cocotb.start_soon(Clock(d.clk_w_i, W_CLOCK_PERIOD, units="ns").start(start_high=False))
 

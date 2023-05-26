@@ -3,7 +3,13 @@
 module tb_top #(
   parameter integer FIFO_DEPTH_W = 2,
   parameter integer WRITE_FREQ   = 1,
-  parameter integer READ_FREQ    = 1
+  parameter integer READ_FREQ    = 1,
+  // For easy cocotb access
+  parameter integer WRITE_BURST_SIZE = 10,
+  parameter integer WRITE_IDLE_CYCLES_BETWEEN_BURSTS = 10,
+  parameter integer WRITE_NUMBER_OF_BURSTS = 10,
+  parameter integer READ_BURST_SIZE = 10,
+  parameter integer READ_IDLE_CYCLES_BETWEEN_BURSTS = 10
 )(
   input  wire rst_ni,
   // Write
