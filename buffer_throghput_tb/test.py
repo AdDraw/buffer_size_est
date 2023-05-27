@@ -47,6 +47,7 @@ class Driver:
           Start writing as soon as wrdy has been asserted, after this point don't care about
           wrdy, write data as fast as required, but write with a given bandwidth
         """
+        self._if.we.setimmediatevalue(0)
         while True:
           # WAIT FOR FIFO WRITABLE
           while not self._if.wrdy.value:
@@ -59,6 +60,7 @@ class Driver:
             for i in range(self.idle_bb): # IDLE CYCLES BETWEEN BURSTS
               await self._if.redge()
               self._if.we.setimmediatevalue(0)
+          self._if.we.setimmediatevalue(0)
           break
 
 class Receiver:
@@ -96,6 +98,7 @@ class TB:
         wbn = dut.WRITE_NUMBER_OF_BURSTS.value
         rbs = dut.READ_BURST_SIZE.value
         rbi = dut.READ_IDLE_CYCLES_BETWEEN_BURSTS.value
+        self.min_fifo_size = self.dut.MIN_FIFO_SIZE.value
         self.wif = WriteInterface(dut)
         self.rif = ReadInterface(dut)
         self.driver = Driver(self.wif, burst_size=wbs, idle_cyc_between_bursts=wbi, number_of_bursts=wbn)
@@ -109,13 +112,17 @@ class TB:
         self.dut.rst_ni.setimmediatevalue(1)
 
     async def check(self):
-      while self.dut.wrdy_o.value:
-        await self.wif.redge(ro=True)
+      while True:
+        await self.wif.redge(ro=False)
+        if (self.dut.genblk1.fifo_inst.words_in_fifo.value.integer > self.min_fifo_size):
+          # if at any point the number of words left in the FIFO goes over the MIN_FIFO_SIZE, it means
+          # that in a realistic implementation writer would be writing to a full FIFO
+          break
 
         # Count how many values in the FIFO
-
+      fifo_word_left_count = self.dut.genblk1.fifo_inst.words_in_fifo.value
       await self.wif.redge()
-      raise ValueError("Fifo got full!!, Wrong FIFO size")
+      raise ValueError(f"Minimal FIFO size estimated({self.min_fifo_size}) was not enough! TB terminated at {fifo_word_left_count} words in FIFO")
 
 @cocotb.test()
 async def test(dut):

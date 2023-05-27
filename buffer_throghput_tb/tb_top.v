@@ -2,6 +2,7 @@
 `default_nettype none
 module tb_top #(
   parameter integer FIFO_DEPTH_W = 2,
+  parameter integer MIN_FIFO_SIZE = 2,
   parameter integer WRITE_FREQ   = 1,
   parameter integer READ_FREQ    = 1,
   // For easy cocotb access

@@ -58,7 +58,7 @@ if __name__ == "__main__":
   parser.add_argument("--fw", type=int, default=1, help="Write Frequency in Hz, def=1")
   parser.add_argument("--fr", type=int, default=1, help="Read Frequency in Hz, def=1")
   parser.add_argument("--wbn", type=int, default=1, help="How many write bursts in a sequence is there to process, def=1")
-  parser.add_argument("--testbench_check", default=False, action="store_true", help="Runs testbench check after calculations")
+  parser.add_argument("--testbench-check", default=False, action="store_true", help="Runs testbench check after calculations")
   args = parser.parse_args()
 
   write_burst_size = args.wbs
@@ -96,6 +96,7 @@ if __name__ == "__main__":
                 f" READ_BURST_SIZE={read_burst_size}" \
                 f" READ_IDLE_CYCLES_BETWEEN_BURSTS={read_idle_cycle}" \
                 f" FIFO_DEPTH_W={fifo_depth_w}" \
+                f" MIN_FIFO_SIZE={min_fifo_size}" \
                 f" WRITE_FREQ={frequency_write}" \
                 f" READ_FREQ={frequency_read}"
 
