@@ -80,6 +80,9 @@ if __name__ == "__main__":
                        )
 
   if testbench_check:
+    if min_fifo_size == 0:
+        print("Testbench check not done, because no fifo is required")
+        exit()
     # Testbench now only deals in FIFO size equal to powers of 2
     # we have to take the fifo size and generate a ceil(log())
     fifo_depth_w = math.ceil(math.log2(min_fifo_size))

@@ -99,6 +99,7 @@ class TB:
         rbs = dut.READ_BURST_SIZE.value
         rbi = dut.READ_IDLE_CYCLES_BETWEEN_BURSTS.value
         self.min_fifo_size = self.dut.MIN_FIFO_SIZE.value
+        self._async = True if (dut.WRITE_FREQ.value != dut.READ_FREQ.value) else False
         self.wif = WriteInterface(dut)
         self.rif = ReadInterface(dut)
         self.driver = Driver(self.wif, burst_size=wbs, idle_cyc_between_bursts=wbi, number_of_bursts=wbn)
@@ -112,15 +113,18 @@ class TB:
         self.dut.rst_ni.setimmediatevalue(1)
 
     async def check(self):
+      fifo_inst = self.dut.genblk1.fifo_inst
+      words_in_fifo = fifo_inst.a_words_in_fifo if self._async else fifo_inst.words_in_fifo
+
       while True:
         await self.wif.redge(ro=False)
-        if (self.dut.genblk1.fifo_inst.words_in_fifo.value.integer > self.min_fifo_size):
+        if (words_in_fifo.value.integer > self.min_fifo_size):
           # if at any point the number of words left in the FIFO goes over the MIN_FIFO_SIZE, it means
           # that in a realistic implementation writer would be writing to a full FIFO
           break
 
         # Count how many values in the FIFO
-      fifo_word_left_count = self.dut.genblk1.fifo_inst.words_in_fifo.value
+      fifo_word_left_count = words_in_fifo.value.integer
       await self.wif.redge()
       raise ValueError(f"Minimal FIFO size estimated({self.min_fifo_size}) was not enough! TB terminated at {fifo_word_left_count} words in FIFO")
 
@@ -130,8 +134,8 @@ async def test(dut):
   # Frequency
   w_freq = dut.WRITE_FREQ.value
   r_freq = dut.READ_FREQ.value
-  W_CLOCK_PERIOD = 1/w_freq * 1e9 # normalize to ns
-  R_CLOCK_PERIOD = 1/r_freq * 1e9 # normalize to ns
+  W_CLOCK_PERIOD = round(1/w_freq * 1e9, 1) # normalize to ns
+  R_CLOCK_PERIOD = round(1/r_freq * 1e9, 1) # normalize to ns
 
   cocotb.log.info(f"Write Freq: {w_freq}Hz Period: {W_CLOCK_PERIOD}ns")
   cocotb.log.info(f"Read Freq: {r_freq}Hz Period: {R_CLOCK_PERIOD}ns")
