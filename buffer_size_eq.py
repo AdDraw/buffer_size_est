@@ -11,13 +11,30 @@ def main(write_burst_size, read_burst_size, write_idle_cycle, read_idle_cycle, f
   time_to_write_n_bursts_cycle = number_of_bursts * (write_burst_size + write_idle_cycle)
   time_to_write_burst_period = time_to_write_burst_cycle * period_write
   time_to_write_n_bursts_period = time_to_write_burst_period * number_of_bursts
+
+  # Because we can only read while fifo is not empty
+  # at the start we need to wait N cycles which take from the time that we could be reading
+  # thus we need to decrease time_to_write_n_bursts_period
+  if period_read == period_write:
+    # Add a single cycle at the start required to wait for not empty fifo
+    print("In this case we will decrease the read_per_second accordingly")
+    time_to_read = time_to_write_n_bursts_period - period_write
+  else:
+    # So, in order to get a not empty for the reader in B domain to read, It needs to wait 2 read periods for rd_ptr to cross the domain border
+    # and at this point empty flag deasserts instantanouesly but since we have registers on the Read Enable signal, it will be asserted and used
+    # only on the next read cycle rising edge(THUS making us wait 3 read cycles in total before actually reading from the fifo)
+    # Additionally `a_words_in_fifo`` is based on A CLOCK DOMAIN WR AND RD POINTERS and again rd_ptr is delayed by 2 write cycles thus
+    # in the end we need to subtract 3 read_cycles and 2 write_cycles from the write_burts time
+    # because this is the time we cannot "read" properly(3 read cycles) or our words in fifo indicator is late(2 write cycles)
+    time_to_read = time_to_write_n_bursts_period - 3*period_read - 2*period_write
+
   time_to_read_burst_cycle = read_burst_size + read_idle_cycle
   time_to_read_burst_period = time_to_read_burst_cycle * period_read
   read_per_second = read_burst_size / time_to_read_burst_period
   read_per_cycle = read_burst_size / time_to_read_burst_cycle
   write_per_second = write_burst_size / time_to_write_burst_period
   write_per_cycle = write_burst_size / time_to_write_burst_cycle
-  read_in_time_to_write_burst = math.floor(time_to_write_n_bursts_period * read_per_second)
+  read_in_time_to_write_burst = math.floor(time_to_read * read_per_second) # Floor it to make the read bandwidth worse since we have to express it in fifo words
   min_fifo_size_any = (write_burst_size * number_of_bursts) - read_in_time_to_write_burst
   min_fifo_size = min_fifo_size_any if (min_fifo_size_any > 0) else 0
 
@@ -35,7 +52,6 @@ def main(write_burst_size, read_burst_size, write_idle_cycle, read_idle_cycle, f
                       ["multiple writes", time_to_write_n_bursts_cycle, time_to_write_n_bursts_period],
                       ["single read", time_to_read_burst_cycle, time_to_read_burst_period, read_per_cycle, read_per_second]],
                      headers=["type", "Time to process[cycles]", "Time to process[s]", "words per cycle", "Words per second"]))
-  print()
 
 
   if (min_fifo_size_any < 0):
@@ -86,6 +102,11 @@ if __name__ == "__main__":
     # Testbench now only deals in FIFO size equal to powers of 2
     # we have to take the fifo size and generate a ceil(log())
     fifo_depth_w = math.ceil(math.log2(min_fifo_size))
+    if (math.log2(min_fifo_size) == int(math.log2(min_fifo_size))):
+      # Increasing FIFO_DEPTH_W since required FIFO_SIZE is always 1 less than 2 to the power of FIFO_DEPTH_W
+      # MIN_FIFO_SIZE of 16 won't fit into a FIFO with FIFO_DEPTH_W=4 because this produces a FIFO of size 2**4-1=15
+      fifo_depth_w = math.ceil(math.log2(min_fifo_size)) + 1
+
     print(f"Adjusted minimum FIFO SIZE {fifo_depth_w}, because {pow(2, fifo_depth_w)} >= {min_fifo_size}")
 
     print("-----------------------------------")

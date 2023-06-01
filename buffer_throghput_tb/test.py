@@ -28,12 +28,41 @@ class WriteInterface(Interface):
         self.we = dut.we_i
         self.wrdy = dut.wrdy_o
         super().__init__(dut.clk_w_i, dut.rst_ni)
+        # stats
+        self.enable = 0
+        self.idle = 0
+
+    async def stats(self):
+      while True:
+        await self.redge()
+        if (self.we.value.integer == 1):
+          self.enable += 1
+        else:
+          self.idle += 1
+
+    def print_stats(self):
+      print(f"WIF STATS: EN {self.enable}: IDLE: {self.idle} RATIO: {self.enable/(self.enable+self.idle)}")
 
 class ReadInterface(Interface):
     def __init__(self, dut) -> None:
         self.re = dut.re_i
         self.rrdy = dut.rrdy_o
         super().__init__(dut.clk_r_i, dut.rst_ni)
+        # stats
+        self.enable = 0
+        self.idle = 0
+
+    async def stats(self):
+      while True:
+        await self.redge()
+        if (self.re.value.integer == 1):
+          self.enable += 1
+        else:
+          self.idle += 1
+
+    def print_stats(self):
+      print(f"RIF STATS: EN {self.enable}: IDLE: {self.idle} RATIO: {self.enable/(self.enable+self.idle)}")
+
 
 class Driver:
     def __init__(self, wif: WriteInterface, burst_size, idle_cyc_between_bursts, number_of_bursts) -> None:
@@ -53,6 +82,7 @@ class Driver:
           while not self._if.wrdy.value:
               await self._if.redge(ro=True)
           # START ISSUING WRITES(as many as requested)
+          cocotb.start_soon(self._if.stats())
           for burst_id in range(self.bn):
             for i in range(self.bs): # BURST WRITE
               await self._if.redge()
@@ -82,6 +112,7 @@ class Receiver:
             while not self._if.rrdy.value:
                 await self._if.redge(ro=True)
             # Start reading in bursts
+            cocotb.start_soon(self._if.stats())
             while True:
               for i in range(self.bs): # BURST WRITE
                 await self._if.redge()
@@ -93,6 +124,7 @@ class Receiver:
 class TB:
     def __init__(self, dut) -> None:
         self.dut = dut
+        self.max_size_required = 0
         wbs = dut.WRITE_BURST_SIZE.value
         wbi = dut.WRITE_IDLE_CYCLES_BETWEEN_BURSTS.value
         wbn = dut.WRITE_NUMBER_OF_BURSTS.value
@@ -118,6 +150,8 @@ class TB:
 
       while True:
         await self.wif.redge(ro=False)
+        if words_in_fifo.value.integer > self.max_size_required:
+          self.max_size_required = words_in_fifo.value.integer
         if (words_in_fifo.value.integer > self.min_fifo_size):
           # if at any point the number of words left in the FIFO goes over the MIN_FIFO_SIZE, it means
           # that in a realistic implementation writer would be writing to a full FIFO
@@ -125,7 +159,11 @@ class TB:
 
         # Count how many values in the FIFO
       fifo_word_left_count = words_in_fifo.value.integer
-      await self.wif.redge()
+      await self.wif.redge(ro=True)
+
+      self.wif.print_stats()
+      self.rif.print_stats()
+      print(self.max_size_required)
       raise ValueError(f"Minimal FIFO size estimated({self.min_fifo_size}) was not enough! TB terminated at {fifo_word_left_count} words in FIFO")
 
 @cocotb.test()
@@ -153,7 +191,8 @@ async def test(dut):
 
   await ClockCycles(dut.clk_w_i, 5) # wait for eventual FULL assertion
 
-  raise TestSuccess
-
-
+  if (tb.max_size_required == tb.min_fifo_size):
+    raise TestSuccess
+  else:
+    raise ValueError(f"Noted a different number of words written to the fifo at peak than min_fifo_size suggests, expected: {tb.min_fifo_size}, received: {tb.max_size_required}")
 
