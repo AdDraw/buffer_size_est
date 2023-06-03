@@ -28,6 +28,12 @@ def main(write_burst_size, read_burst_size, write_idle_cycle, read_idle_cycle, f
     # because this is the time we cannot "read" properly(3 read cycles) or our words in fifo indicator is late(2 write cycles)
     time_to_read = time_to_write_n_bursts_period - 3*period_read - 2*period_write
 
+    # Q: What if "read_period" is higher than "time_to_write_n_bursts_period"?
+    # A: This means that reader does not have time to read data at all, everything has to be buffered
+    #    We cannot use the above equation since it will produce negative time_to_read
+    if time_to_read < 0:
+      time_to_read = 0
+
   time_to_read_burst_cycle = read_burst_size + read_idle_cycle
   time_to_read_burst_period = time_to_read_burst_cycle * period_read
   read_per_second = read_burst_size / time_to_read_burst_period
@@ -71,8 +77,8 @@ if __name__ == "__main__":
   parser.add_argument("--rbs", type=int, default=10, help="Read Burst Size, how many words in a bursts are read from the FIFO, def=10")
   parser.add_argument("--wbi", type=int, default=1, help="Write Burst Idle Cycles, how many cycles is there between 2 write bursts, def=1")
   parser.add_argument("--rbi", type=int, default=1, help="Read Burst Idle Cycles, how many cycles is there between 2 read bursts, def=1")
-  parser.add_argument("--fw", type=int, default=1, help="Write Frequency in Hz, def=1")
-  parser.add_argument("--fr", type=int, default=1, help="Read Frequency in Hz, def=1")
+  parser.add_argument("--fw", type=float, default=1, help="Write Frequency in Hz, def=1")
+  parser.add_argument("--fr", type=float, default=1, help="Read Frequency in Hz, def=1")
   parser.add_argument("--wbn", type=int, default=1, help="How many write bursts in a sequence is there to process, def=1")
   parser.add_argument("--testbench-check", default=False, action="store_true", help="Runs testbench check after calculations")
   args = parser.parse_args()
