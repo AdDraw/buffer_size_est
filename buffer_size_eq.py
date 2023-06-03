@@ -28,6 +28,10 @@ def main(write_burst_size, read_burst_size, write_idle_cycle, read_idle_cycle, f
     # because this is the time we cannot "read" properly(3 read cycles) or our words in fifo indicator is late(2 write cycles)
     time_to_read = time_to_write_n_bursts_period - 3*period_read - 2*period_write
 
+    # Above works well when rising edges of both clocks happen at the same time
+    # TODO: Figure out the equation if clock edges might happen at different positions
+    # in relation to each other
+
     # Q: What if "read_period" is higher than "time_to_write_n_bursts_period"?
     # A: This means that reader does not have time to read data at all, everything has to be buffered
     #    We cannot use the above equation since it will produce negative time_to_read
