@@ -113,6 +113,8 @@ if __name__ == "__main__":
     print("-- Testbench check in progress... -")
     print("-----------------------------------")
 
+    write_period_ns = (1/frequency_write)*1e9
+    read_period_ns = (1/frequency_read)*1e9
     shell_cmd = f"make" \
                 f" WRITE_BURST_SIZE={write_burst_size}" \
                 f" WRITE_IDLE_CYCLES_BETWEEN_BURSTS={write_idle_cycle}" \
@@ -121,8 +123,8 @@ if __name__ == "__main__":
                 f" READ_IDLE_CYCLES_BETWEEN_BURSTS={read_idle_cycle}" \
                 f" FIFO_DEPTH_W={fifo_depth_w}" \
                 f" MIN_FIFO_SIZE={min_fifo_size}" \
-                f" WRITE_FREQ={frequency_write}" \
-                f" READ_FREQ={frequency_read}"
+                f" WRITE_PERIOD={write_period_ns}" \
+                f" READ_PERIOD={read_period_ns}"
 
 
     import os

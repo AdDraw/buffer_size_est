@@ -27,7 +27,7 @@ class WriteInterface(Interface):
     def __init__(self, dut) -> None:
         self.we = dut.we_i
         self.wrdy = dut.wrdy_o
-        super().__init__(dut.clk_w_i, dut.rst_ni)
+        super().__init__(dut.clk_w_o, dut.rst_ni)
         # stats
         self.enable = 0
         self.idle = 0
@@ -47,7 +47,7 @@ class ReadInterface(Interface):
     def __init__(self, dut) -> None:
         self.re = dut.re_i
         self.rrdy = dut.rrdy_o
-        super().__init__(dut.clk_r_i, dut.rst_ni)
+        super().__init__(dut.clk_r_o, dut.rst_ni)
         # stats
         self.enable = 0
         self.idle = 0
@@ -131,7 +131,7 @@ class TB:
         rbs = dut.READ_BURST_SIZE.value
         rbi = dut.READ_IDLE_CYCLES_BETWEEN_BURSTS.value
         self.min_fifo_size = self.dut.MIN_FIFO_SIZE.value
-        self._async = True if (dut.WRITE_FREQ.value != dut.READ_FREQ.value) else False
+        self._async = True if (dut.WRITE_PERIOD.value != dut.READ_PERIOD.value) else False
         self.wif = WriteInterface(dut)
         self.rif = ReadInterface(dut)
         self.driver = Driver(self.wif, burst_size=wbs, idle_cyc_between_bursts=wbi, number_of_bursts=wbn)
@@ -170,17 +170,12 @@ class TB:
 async def test(dut):
   d = dut
   # Frequency
-  w_freq = dut.WRITE_FREQ.value
-  r_freq = dut.READ_FREQ.value
-  W_CLOCK_PERIOD = round(1/w_freq * 1e9, 1) # normalize to ns
-  R_CLOCK_PERIOD = round(1/r_freq * 1e9, 1) # normalize to ns
-
-  cocotb.log.info(f"Write Freq: {w_freq}Hz Period: {W_CLOCK_PERIOD}ns")
-  cocotb.log.info(f"Read Freq: {r_freq}Hz Period: {R_CLOCK_PERIOD}ns")
-
-  # Clocks
-  cocotb.start_soon(Clock(d.clk_r_i, R_CLOCK_PERIOD, units="ns").start(start_high=False))
-  cocotb.start_soon(Clock(d.clk_w_i, W_CLOCK_PERIOD, units="ns").start(start_high=False))
+  w_period = d.WRITE_PERIOD.value # in ns
+  r_period = d.READ_PERIOD.value # in ns
+  w_freq = (1/w_period) * 1e9 # normalize to Hz
+  r_freq = (1/r_period) * 1e9 # normalize to Hz
+  cocotb.log.info(f"Write Freq: {w_freq}Hz Period: {w_period}ns")
+  cocotb.log.info(f"Read Freq: {r_freq}Hz Period: {r_period}ns")
 
   tb = TB(dut)
   await tb.wif.reset()
@@ -189,7 +184,7 @@ async def test(dut):
   cocotb.start_soon(tb.reader.read_constantly())
   await tb.driver.write_constantly()
 
-  await ClockCycles(dut.clk_w_i, 5) # wait for eventual FULL assertion
+  await ClockCycles(dut.clk_w_o, 5) # wait for eventual FULL assertion
 
   if (tb.max_size_required == tb.min_fifo_size):
     raise TestSuccess
